@@ -296,22 +296,85 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Authentication event listeners
-  loginBtn.addEventListener('click', () => {
+  // Focus trap variables
+  let lastFocusedElement = null;
+  let focusTrapHandler = null;
+
+  function getFocusableElements(modal) {
+    return modal.querySelectorAll(
+      'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, object, embed, [tabindex]:not([tabindex="-1"]), [contenteditable]'
+    );
+  }
+
+  function trapFocus(modal) {
+    const focusableEls = getFocusableElements(modal);
+    if (focusableEls.length === 0) return;
+    const firstEl = focusableEls[0];
+    const lastEl = focusableEls[focusableEls.length - 1];
+
+    focusTrapHandler = function(e) {
+      if (e.key === 'Tab') {
+        if (focusableEls.length === 1) {
+          e.preventDefault();
+          firstEl.focus();
+          return;
+        }
+        if (e.shiftKey) {
+          if (document.activeElement === firstEl) {
+            e.preventDefault();
+            lastEl.focus();
+          }
+        } else {
+          if (document.activeElement === lastEl) {
+            e.preventDefault();
+            firstEl.focus();
+          }
+        }
+      } else if (e.key === 'Escape') {
+        closeLoginModal();
+      }
+    };
+    modal.addEventListener('keydown', focusTrapHandler);
+  }
+
+  function releaseFocusTrap(modal) {
+    if (focusTrapHandler) {
+      modal.removeEventListener('keydown', focusTrapHandler);
+      focusTrapHandler = null;
+    }
+  }
+
+  function openLoginModal() {
+    lastFocusedElement = document.activeElement;
     loginModal.classList.add('show');
     loginError.classList.add('hidden');
-  });
+    // Focus first focusable element in modal
+    const focusableEls = getFocusableElements(loginModal);
+    if (focusableEls.length > 0) {
+      focusableEls[0].focus();
+    }
+    trapFocus(loginModal);
+  }
+
+  function closeLoginModal() {
+    loginModal.classList.remove('show');
+    loginError.classList.add('hidden');
+    releaseFocusTrap(loginModal);
+    if (lastFocusedElement) {
+      lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
+  }
+
+  loginBtn.addEventListener('click', openLoginModal);
   
   logoutBtn.addEventListener('click', logout);
   
-  closeModal.addEventListener('click', () => {
-    loginModal.classList.remove('show');
-    loginError.classList.add('hidden');
-  });
+  closeModal.addEventListener('click', closeLoginModal);
   
   window.addEventListener('click', (event) => {
     if (event.target === loginModal) {
-      loginModal.classList.remove('show');
-      loginError.classList.add('hidden');
+      closeLoginModal();
     }
   });
   
