@@ -324,6 +324,8 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Initialize app
-  checkAuthStatus();
-  fetchActivities();
+  (async () => {
+    await checkAuthStatus();
+    fetchActivities();
+  })();
 });
