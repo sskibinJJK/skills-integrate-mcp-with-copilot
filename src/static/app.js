@@ -1,4 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // Debug flag - set to true for development debugging
+  const DEBUG = false;
+  
   const activitiesList = document.getElementById("activities-list");
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
@@ -68,7 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   
   async function login(username, password) {
-    console.log('Attempting login for:', username);
+    if (DEBUG) console.log('Attempting login for:', username);
     try {
       const response = await fetch('/auth/login', {
         method: 'POST',
@@ -81,9 +84,9 @@ document.addEventListener("DOMContentLoaded", () => {
         })
       });
       
-      console.log('Login response status:', response.status);
+      if (DEBUG) console.log('Login response status:', response.status);
       const result = await response.json();
-      console.log('Login response:', result);
+      if (DEBUG) console.log('Login response:', result);
       
       if (response.ok) {
         authToken = result.token;
