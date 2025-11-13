@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 import secrets
 from typing import Optional
+import bcrypt
 
 app = FastAPI(title="Mergington High School API",
               description="API for viewing and signing up for extracurricular activities")
@@ -133,18 +134,21 @@ def login(login_data: LoginRequest):
     username = login_data.username
     password = login_data.password
     
-    if username in teachers and teachers[username]["password"] == password:
-        token = secrets.token_urlsafe(32)
-        active_sessions[token] = {
-            "username": username,
-            "name": teachers[username]["name"]
-        }
-        return {"token": token, "user": active_sessions[token]}
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
-        )
+    if username in teachers:
+        stored_hash = teachers[username]["password"]
+        # Verify the password against the hashed password
+        if bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8')):
+            token = secrets.token_urlsafe(32)
+            active_sessions[token] = {
+                "username": username,
+                "name": teachers[username]["name"]
+            }
+            return {"token": token, "user": active_sessions[token]}
+    
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid credentials"
+    )
 
 @app.post("/auth/logout")
 def logout(current_user: dict = Depends(require_teacher)):

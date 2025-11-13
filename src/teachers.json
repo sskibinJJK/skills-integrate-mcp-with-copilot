@@ -1,15 +1,15 @@
 {
   "teachers": {
     "admin": {
-      "password": "school123",
+      "password": "$2b$12$u/tn0Pf.bvLHZOe4LDIK6.udItyIqjsIceoSwDf63.N2O.zy/wigG",
       "name": "Administrator"
     },
     "teacher1": {
-      "password": "teach456", 
+      "password": "$2b$12$AdLrJyENz399/a9hawMc3OuR9S20EyqFDXBPQvCishvLP8Ot36lTi", 
       "name": "Ms. Johnson"
     },
     "teacher2": {
-      "password": "edu789",
+      "password": "$2b$12$1XCDKKdoZ1XyOuvknX22R.CZyisDPu1LOQJ62cfUK4pxXCKalbOtG",
       "name": "Mr. Smith"
     }
   }
