@@ -162,7 +162,7 @@ def logout(current_user: dict = Depends(require_teacher)):
     return {"message": "Logged out successfully"}
 
 @app.get("/auth/me")
-def get_current_user_info(current_user: Optional[dict] = Depends(get_current_user)):
+def get_current_user_info(current_user: dict = Depends(require_teacher)):
     """Get current user information"""
     return current_user
 
