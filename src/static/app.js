@@ -3,6 +3,126 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
+  
+  // Authentication elements
+  const loginBtn = document.getElementById("login-btn");
+  const logoutBtn = document.getElementById("logout-btn");
+  const userInfo = document.getElementById("user-info");
+  const userName = document.getElementById("user-name");
+  const loginModal = document.getElementById("login-modal");
+  const loginForm = document.getElementById("login-form");
+  const loginError = document.getElementById("login-error");
+  const closeModal = document.querySelector(".close");
+  
+  // Authentication state
+  let currentUser = null;
+  let authToken = localStorage.getItem('authToken');
+
+  // Authentication functions
+  async function checkAuthStatus() {
+    if (authToken) {
+      try {
+        const response = await fetch('/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+        
+        if (response.ok) {
+          currentUser = await response.json();
+          updateUIForUser();
+        } else {
+          // Token is invalid, clear it
+          localStorage.removeItem('authToken');
+          authToken = null;
+          currentUser = null;
+          updateUIForUser();
+        }
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+        localStorage.removeItem('authToken');
+        authToken = null;
+        currentUser = null;
+        updateUIForUser();
+      }
+    } else {
+      updateUIForUser();
+    }
+  }
+  
+  function updateUIForUser() {
+    if (currentUser) {
+      // User is logged in (teacher mode)
+      loginBtn.classList.add('hidden');
+      userInfo.classList.remove('hidden');
+      userName.textContent = `Welcome, ${currentUser.name}`;
+      document.body.classList.add('teacher-mode');
+      document.body.classList.remove('student-mode');
+    } else {
+      // User is not logged in (student mode)
+      loginBtn.classList.remove('hidden');
+      userInfo.classList.add('hidden');
+      document.body.classList.add('student-mode');
+      document.body.classList.remove('teacher-mode');
+    }
+  }
+  
+  async function login(username, password) {
+    console.log('Attempting login for:', username);
+    try {
+      const response = await fetch('/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: username,
+          password: password
+        })
+      });
+      
+      console.log('Login response status:', response.status);
+      const result = await response.json();
+      console.log('Login response:', result);
+      
+      if (response.ok) {
+        authToken = result.token;
+        currentUser = result.user;
+        localStorage.setItem('authToken', authToken);
+        updateUIForUser();
+        loginModal.classList.remove('show');
+        loginForm.reset();
+        loginError.classList.add('hidden');
+      } else {
+        loginError.textContent = result.detail || 'Login failed';
+        loginError.classList.remove('hidden');
+      }
+    } catch (error) {
+      loginError.textContent = 'Login failed. Please try again.';
+      loginError.classList.remove('hidden');
+      console.error('Login error:', error);
+    }
+  }
+  
+  async function logout() {
+    try {
+      if (authToken) {
+        await fetch('/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    
+    localStorage.removeItem('authToken');
+    authToken = null;
+    currentUser = null;
+    updateUIForUser();
+  }
 
   // Function to fetch activities from API
   async function fetchActivities() {
@@ -67,11 +187,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Handle unregister functionality
+  // Handle unregister functionality  
   async function handleUnregister(event) {
     const button = event.target;
     const activity = button.getAttribute("data-activity");
     const email = button.getAttribute("data-email");
+
+    if (!authToken) {
+      messageDiv.textContent = "Please login to manage registrations";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+      return;
+    }
 
     try {
       const response = await fetch(
@@ -80,6 +207,9 @@ document.addEventListener("DOMContentLoaded", () => {
         )}/unregister?email=${encodeURIComponent(email)}`,
         {
           method: "DELETE",
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
         }
       );
 
@@ -117,6 +247,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const email = document.getElementById("email").value;
     const activity = document.getElementById("activity").value;
 
+    if (!authToken) {
+      messageDiv.textContent = "Please login to manage registrations";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+      return;
+    }
+
     try {
       const response = await fetch(
         `/activities/${encodeURIComponent(
@@ -124,6 +261,9 @@ document.addEventListener("DOMContentLoaded", () => {
         )}/signup?email=${encodeURIComponent(email)}`,
         {
           method: "POST",
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
         }
       );
 
@@ -155,6 +295,100 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Authentication event listeners
+  // Focus trap variables
+  let lastFocusedElement = null;
+  let focusTrapHandler = null;
+
+  function getFocusableElements(modal) {
+    return modal.querySelectorAll(
+      'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, object, embed, [tabindex]:not([tabindex="-1"]), [contenteditable]'
+    );
+  }
+
+  function trapFocus(modal) {
+    const focusableEls = getFocusableElements(modal);
+    if (focusableEls.length === 0) return;
+    const firstEl = focusableEls[0];
+    const lastEl = focusableEls[focusableEls.length - 1];
+
+    focusTrapHandler = function(e) {
+      if (e.key === 'Tab') {
+        if (focusableEls.length === 1) {
+          e.preventDefault();
+          firstEl.focus();
+          return;
+        }
+        if (e.shiftKey) {
+          if (document.activeElement === firstEl) {
+            e.preventDefault();
+            lastEl.focus();
+          }
+        } else {
+          if (document.activeElement === lastEl) {
+            e.preventDefault();
+            firstEl.focus();
+          }
+        }
+      } else if (e.key === 'Escape') {
+        closeLoginModal();
+      }
+    };
+    modal.addEventListener('keydown', focusTrapHandler);
+  }
+
+  function releaseFocusTrap(modal) {
+    if (focusTrapHandler) {
+      modal.removeEventListener('keydown', focusTrapHandler);
+      focusTrapHandler = null;
+    }
+  }
+
+  function openLoginModal() {
+    lastFocusedElement = document.activeElement;
+    loginModal.classList.add('show');
+    loginError.classList.add('hidden');
+    // Focus first focusable element in modal
+    const focusableEls = getFocusableElements(loginModal);
+    if (focusableEls.length > 0) {
+      focusableEls[0].focus();
+    }
+    trapFocus(loginModal);
+  }
+
+  function closeLoginModal() {
+    loginModal.classList.remove('show');
+    loginError.classList.add('hidden');
+    releaseFocusTrap(loginModal);
+    if (lastFocusedElement) {
+      lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
+  }
+
+  loginBtn.addEventListener('click', openLoginModal);
+  
+  logoutBtn.addEventListener('click', logout);
+  
+  closeModal.addEventListener('click', closeLoginModal);
+  
+  window.addEventListener('click', (event) => {
+    if (event.target === loginModal) {
+      closeLoginModal();
+    }
+  });
+  
+  loginForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    await login(username, password);
+  });
+
   // Initialize app
-  fetchActivities();
+  (async () => {
+    await checkAuthStatus();
+    fetchActivities();
+  })();
 });
